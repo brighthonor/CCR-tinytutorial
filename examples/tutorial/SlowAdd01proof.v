@@ -32,7 +32,6 @@ Section PRF.
 
   Let W: Type := Any.t * Any.t.
 
-  Variable FunStb: Sk.t -> gname -> option fspec.
   Variable GlobalStb: Sk.t -> gname -> option fspec.
 
   Let wf: _ -> W -> Prop :=
@@ -46,9 +45,9 @@ Section PRF.
   
   Hypothesis GlobalStb_minus: forall sk,
       GlobalStb sk "minus" = Some minus_spec.
-  
+
   Hypothesis GlobalStb_add: forall sk,
-      fn_has_spec (GlobalStb sk) "add" (add_spec FunStb sk).
+      GlobalStb sk "add" = Some add_spec.
 
   Lemma ord_0_lt_omega_Sm: forall n, (0 < Ord.omega + S n)%ord.
   Proof.
@@ -60,7 +59,7 @@ Section PRF.
     { eapply OrdArith.lt_add_r. rewrite Ord.from_nat_S. eapply Ord.S_lt. }
   Qed.
 
-  Theorem correct: refines2 [SlowAdd0.Add] [SlowAdd1.Add FunStb GlobalStb].
+  Theorem correct: refines2 [SlowAdd0.Add] [SlowAdd1.Add GlobalStb].
   Proof.
     eapply adequacy_local2. econs; ss.
     i. econstructor 1 with (wf:=wf) (le:=top2); ss.
@@ -71,17 +70,18 @@ Section PRF.
     (* plus *)
     econs; ss.
     { unfold plusF. init.
-      harg. mDesAll. des; clarify. steps. hret _; ss. }
+      harg. mDesAll. des; clarify. steps.
+      astop. steps. force_l. eexists. steps. hret _; ss. }
 
     (* minus *)
     econs; ss.
     { unfold minusF. init.
-      harg. mDesAll. des; clarify. steps. hret _; ss. }
+      harg. mDesAll. des; clarify. steps.
+      astop. steps. force_l. eexists. steps. hret _; ss. }
 
     (* add *)
     econs; ss.
     { unfold addF. init.
-      2:{ harg. mDesAll. des; clarify. steps. }
       harg. destruct x as [[n m] f_spec]. ss. mDesAll. des; clarify. steps.
       des_ifs.
       { astart 0. astop. steps. force_l. eexists. steps. hret _; ss.
@@ -89,7 +89,7 @@ Section PRF.
         rewrite Z.leb_le in Heq. assert (m=0) by nia. subst. rewrite Z.add_0_r. ss. }
       destruct m.
       { exfalso. rewrite Z.leb_gt in Heq. lia. }
-      inv PURE2. unfold ccallU. steps. astart 3. acatch; et.
+      unfold ccallU. steps. astart 3. acatch; et.
       hcall _ _ with ""; et.
       { ss. split; ss. apply ord_0_lt_omega_Sm. } steps.
       mDesAll. des; clarify. steps.
@@ -97,12 +97,12 @@ Section PRF.
       hcall (S m) _ with ""; et.
       { ss. split; ss. apply ord_0_lt_omega_Sm. } steps.
       mDesAll. des; clarify. steps.
-      hexploit GlobalStb_add. i. inv H. acatch; et.
-      hcall_weaken (SlowAdd1.add_spec FunStb sk) (_, m, _) _ with ""; et.
+      acatch; et.
+      hcall (_, m, _) _ with ""; et.
       { iPureIntro. repeat split; ss.
         replace (Z.pos (Pos.of_succ_nat m) - 1)%Z with (Z.of_nat m) by nia.
         replace (Vint (n + 1)) with (Vint (n +1)%nat).
-        2:{ f_equal. nia. } ss. i. econs; et. }
+        2:{ f_equal. nia. } ss. }
       { ss. split; ss. eauto with ord_step. }
       steps. astop. steps. force_l. mDesAll. des; clarify. eexists. steps.
       hret _; ss.

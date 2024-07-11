@@ -17,64 +17,52 @@ Set Implicit Arguments.
 Section SPC.
   Context `{Σ: GRA.t}.
 
-  Variable FunStb: Sk.t -> gname -> option fspec.
-  Variable GlobalStb: Sk.t -> gname -> option fspec.
+  Definition plus_spec: fspec :=
+    mk_simple (X:=nat)
+      (fun n => (
+               (ord_pure 0),
+               (fun varg => (⌜varg = [Vint n]↑⌝)%I),
+               (fun vret => (⌜vret = (Vint (n + 1))↑⌝)%I)
+      )).
 
-  Section SKENV.
-    Variable sk: Sk.t.
+  Definition minus_spec: fspec :=
+    mk_simple (X:=nat)
+      (fun n => (
+               (ord_pure 0),
+               (fun varg => (⌜varg = [Vint n]↑⌝)%I),
+               (fun vret => (⌜vret = (Vint (n - 1))↑⌝)%I)
+      )).
 
-    Definition plus_spec: fspec :=
-      mk_simple (X:=nat)
-        (fun n => (
-                 (ord_pure 0),
-                 (fun varg => (⌜varg = [Vint n]↑⌝)%I),
-                 (fun vret => (⌜vret = (Vint (n + 1))↑⌝)%I)
-        )).
+  Definition add_spec: fspec :=
+    mk_simple (X:=nat*nat*(Z*Z->Z))
+      (fun '(n, m, f_spec) => 
+         ((ord_pure (Ord.omega + m)%ord),
+           (fun varg =>
+              (⌜varg = ([Vint (Z.of_nat n); Vint (Z.of_nat m)]: list val)↑⌝)%I),
+           (fun vret => (⌜vret = (Vint (n + m))↑⌝)%I)
+      )).
+  
+  Definition AddSbtb: list (gname * fspecbody) :=
+    [("plus", mk_specbody plus_spec (cfunU plusF));
+     ("minus", mk_specbody minus_spec (cfunU minusF));
+     ("add", mk_specbody add_spec (cfunU addF))].
 
-    Definition minus_spec: fspec :=
-      mk_simple (X:=nat)
-        (fun n => (
-                 (ord_pure 0),
-                 (fun varg => (⌜varg = [Vint n]↑⌝)%I),
-                 (fun vret => (⌜vret = (Vint (n - 1))↑⌝)%I)
-        )).
+  Definition SAddSem: SModSem.t :=
+    {|
+      SModSem.fnsems := AddSbtb;
+      SModSem.mn := "Add";
+      SModSem.initial_mr := ε;
+      SModSem.initial_st := tt↑;
+    |}.
 
-    Definition add_spec: fspec :=
-      mk_simple (X:=nat*nat*(Z*Z->Z))
-        (fun '(n, m, f_spec) => 
-           ((ord_pure (Ord.omega + m)%ord),
-             (fun varg =>
-                (⌜varg = ([Vint (Z.of_nat n); Vint (Z.of_nat m)]: list val)↑ /\
-                  fn_has_spec (FunStb sk) "add"
-                    (mk_simple (X:=Z*Z)
-                       (fun '(x, y) =>
-                          ((ord_pure (Ord.omega)),
-                            (fun varg => ⌜varg = ([Vint x; Vint y]: list val)↑⌝),
-                            (fun vret => ⌜vret = (Vint (f_spec (x, y)))↑⌝))))⌝)%I),
-             (fun vret => (⌜vret = (Vint (n + m))↑⌝)%I)
-        )).
-    
-    Definition AddSbtb: list (gname * kspecbody) :=
-      [("plus", ksb_trivial (cfunU plusF));
-       ("minus", ksb_trivial (cfunU minusF));
-       ("add", mk_kspecbody add_spec (fun _ => triggerUB) (fun _ => triggerNB))].
-
-    Definition KAddSem: KModSem.t :=
-      {|
-        KModSem.fnsems := AddSbtb;
-        KModSem.mn := "Add";
-        KModSem.initial_mr := ε;
-        KModSem.initial_st := tt↑;
-      |}.
-
-  End SKENV.
-    
-  Definition KAdd: KMod.t := {|
-    KMod.get_modsem := KAddSem;
-    KMod.sk := [("plus", Sk.Gfun); ("minus", Sk.Gfun); ("add", Sk.Gfun)];
-  |}
+  Definition SAdd: SMod.t :=
+    {|
+      SMod.get_modsem := fun _ => SAddSem;
+      SMod.sk := [("plus", Sk.Gfun); ("minus", Sk.Gfun); ("add", Sk.Gfun)];
+    |}
   .
 
-  Definition Add: Mod.t := (KMod.transl_tgt GlobalStb) KAdd.
+  Variable GlobalStb: Sk.t -> gname -> option fspec.
+  Definition Add: Mod.t := (SMod.to_tgt GlobalStb) SAdd.
 
 End SPC.

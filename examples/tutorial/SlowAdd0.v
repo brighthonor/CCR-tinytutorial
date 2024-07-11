@@ -43,7 +43,7 @@ Section IMP.
             Ret (Vint (n - 1)).
   
 
-  Definition addF {E} `{callE -< E} `{eventE -< E} (skenv: SkEnv.t)
+  Definition addF {E} `{callE -< E} `{pE -< E} `{eventE -< E}
     : list val -> itree E val :=
     fun args =>
       '(n, m) <- (pargs [Tint; Tint] args)?;;
@@ -55,7 +55,7 @@ Section IMP.
            Ret rr.
   
   Definition AddSem (sk: Sk.t): ModSem.t := {|
-    ModSem.fnsems := [("plus", cfunU plusF); ("minus", cfunU minusF); ("add", cfunU (addF (Sk.load_skenv sk: SkEnv.t)))];
+    ModSem.fnsems := [("plus", cfunU plusF); ("minus", cfunU minusF); ("add", cfunU addF)];
     ModSem.mn := "Add";
     ModSem.initial_st := tt↑;
   |}
